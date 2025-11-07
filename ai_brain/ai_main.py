@@ -11,7 +11,7 @@ def main():
     """
     Main function to run the AI chatbot for travel planning.
     """
-    print("Welcome to Aitrav! Your AI travel assistant.")
+    print("Welcome to Navigatio! Your AI travel assistant.")
     print("You can ask me about your trip, get recommendations, or just chat!")
     
     #Start the chatbot conversation
