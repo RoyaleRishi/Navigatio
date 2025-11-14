@@ -287,7 +287,7 @@ class PlacesAPI:
                         'snippets': review_snippets
                     },
                     'roomPrices': {
-                        'available': False,  # Would need booking API for real prices
+                        'available': False,  # Real pricing would require booking API access
                         'pricePerNight': None,
                         'totalPrice': None,
                         'currency': 'USD'
