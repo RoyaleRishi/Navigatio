@@ -1,11 +1,14 @@
-from ai_brain.chatbot import generate
-from ai_brain.gen_json import parse_conversation_and_generate_json
-from ai_brain.placesApiCalled import generate_places_api_calls
-from ai_brain.ranker import PlaceScorer
-from ai_brain.gen_iten import TripItineraryGenerator
+from chatbot import generate
+from gen_json import parse_conversation_and_generate_json
+from placesApiCalled import generate_places_api_calls
+from ranker import PlaceScorer
+from gen_iten import TripItineraryGenerator
 import json
+import os
+import dotenv
 
-my_api_key = ""
+dotenv.load_dotenv()
+my_api_key = os.getenv("API_KEY")
 
 def main():
     """
