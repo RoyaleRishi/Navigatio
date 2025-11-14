@@ -1,22 +1,30 @@
 export interface TripPreferences {
   city: string;
-  duration: number;
-  tripType: string;
+  checkIn: string; // YYYY-MM-DD
+  checkOut: string; // YYYY-MM-DD
+  tripType: string; // tripDescription
   priceRange: string;
   locationPreferences?: string;
 }
 
 export interface Hotel {
-  id: string;
+  id: string; // placeId from API
   name: string;
   rating: number;
-  price: number;
-  pricePerNight: number;
-  image: string;
-  description: string;
-  amenities: string[];
-  location: string;
-  bookingUrl: string;
+  totalReviews: number;
+  price: number | null; // totalPrice from API
+  pricePerNight: number | null;
+  currency: string;
+  images: string[]; // Multiple images
+  description: string; // AI analysis summary
+  amenities: string[]; // Not provided by API, empty array
+  location: string; // address from API
+  bookingUrl: string; // Not provided by API, empty string
+  aiAnalysis: {
+    relevanceScore: number; // 1-10
+    summary: string;
+  };
+  reviewSnippets: string[];
 }
 
 export interface Restaurant {

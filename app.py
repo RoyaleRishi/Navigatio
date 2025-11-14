@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from functools import wraps
@@ -16,6 +17,15 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
+
+# Configure CORS to allow requests from the frontend
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # Initialize rate limiter
 limiter = Limiter(

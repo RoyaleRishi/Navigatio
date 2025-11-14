@@ -21,6 +21,12 @@ def require_api_key(f):
         # Check for API key in Authorization header
         auth_header = request.headers.get('Authorization', '')
         
+        # If no VALID_API_KEYS are configured, skip authentication (development mode)
+        if not VALID_API_KEYS:
+            request.api_key = auth_header[7:].strip() if auth_header.startswith('Bearer ') else auth_header.strip() if auth_header else 'dev'
+            return f(*args, **kwargs)
+        
+        # Production mode: require authentication
         if not auth_header:
             return jsonify({
                 "success": False,
@@ -37,26 +43,14 @@ def require_api_key(f):
         else:
             api_key = auth_header.strip()
         
-        # Validate API key
-        # In development: accept any non-empty key if VALID_API_KEYS is empty
-        # In production: validate against database or environment
-        if VALID_API_KEYS:
-            if api_key not in VALID_API_KEYS:
-                return jsonify({
-                    "success": False,
-                    "data": None,
-                    "error": {
-                        "code": "AUTHENTICATION_FAILED",
-                        "message": "Invalid API key"
-                    }
-                }), 401
-        elif not api_key:
+        # Validate API key against configured keys
+        if api_key not in VALID_API_KEYS:
             return jsonify({
                 "success": False,
                 "data": None,
                 "error": {
                     "code": "AUTHENTICATION_FAILED",
-                    "message": "API key is required"
+                    "message": "Invalid API key"
                 }
             }), 401
         

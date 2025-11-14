@@ -13,17 +13,38 @@ interface SearchFormProps {
 
 export function SearchForm({ onSubmit }: SearchFormProps) {
   const [city, setCity] = useState('');
-  const [duration, setDuration] = useState('');
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
   const [tripType, setTripType] = useState('');
   const [priceRange, setPriceRange] = useState('');
   const [locationPreferences, setLocationPreferences] = useState('');
 
+  // Calculate minimum check-out date (day after check-in)
+  const getMinCheckOutDate = () => {
+    if (!checkIn) return '';
+    const checkInDate = new Date(checkIn);
+    checkInDate.setDate(checkInDate.getDate() + 1);
+    return checkInDate.toISOString().split('T')[0];
+  };
+
+  // Set default check-out to day after check-in
+  const handleCheckInChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newCheckIn = e.target.value;
+    setCheckIn(newCheckIn);
+    if (newCheckIn && (!checkOut || checkOut <= newCheckIn)) {
+      const checkInDate = new Date(newCheckIn);
+      checkInDate.setDate(checkInDate.getDate() + 1);
+      setCheckOut(checkInDate.toISOString().split('T')[0]);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (city && duration && tripType && priceRange) {
+    if (city && checkIn && checkOut && tripType && priceRange) {
       onSubmit({
         city,
-        duration: parseInt(duration),
+        checkIn,
+        checkOut,
         tripType,
         priceRange,
         locationPreferences: locationPreferences || undefined,
@@ -61,21 +82,35 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="duration" className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Duration (nights)
-              </Label>
-              <Input
-                id="duration"
-                type="number"
-                min="1"
-                max="30"
-                placeholder="e.g., 5"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="checkIn" className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Check-In Date
+                </Label>
+                <Input
+                  id="checkIn"
+                  type="date"
+                  min={new Date().toISOString().split('T')[0]}
+                  value={checkIn}
+                  onChange={handleCheckInChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="checkOut" className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Check-Out Date
+                </Label>
+                <Input
+                  id="checkOut"
+                  type="date"
+                  min={getMinCheckOutDate()}
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

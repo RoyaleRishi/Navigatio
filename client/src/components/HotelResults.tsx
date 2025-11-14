@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { HotelCard } from './HotelCard';
 import { Hotel, TripPreferences } from '../types';
-import { generateHotels } from '../data/mockData';
-import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react';
+import { apiService, ApiError } from '../services/api';
+import { ArrowLeft, RefreshCw, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 
 interface HotelResultsProps {
   preferences: TripPreferences;
@@ -14,12 +15,67 @@ interface HotelResultsProps {
 }
 
 export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResultsProps) {
-  const [hotels, setHotels] = useState<Hotel[]>(() => generateHotels(preferences));
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
 
-  const handleRetry = () => {
-    setHotels(generateHotels(preferences));
+  // Convert TripPreferences to API format and fetch hotels
+  const fetchHotels = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     setSelectedHotelId(null);
+
+    try {
+      const response = await apiService.searchHotels({
+        city: preferences.city,
+        dateRange: {
+          checkIn: preferences.checkIn,
+          checkOut: preferences.checkOut,
+        },
+        priceRange: preferences.priceRange,
+        locationPreferences: preferences.locationPreferences,
+        tripDescription: preferences.tripType,
+        excludedHotels: [],
+      });
+
+      // Convert API response to Hotel format
+      const convertedHotels: Hotel[] = response.data.results.map((result, index) => ({
+        id: result.placeId || `hotel-${index}`,
+        name: result.name,
+        rating: result.reviews.rating || 0,
+        totalReviews: result.reviews.totalReviews || 0,
+        price: result.roomPrices.totalPrice,
+        pricePerNight: result.roomPrices.pricePerNight,
+        currency: result.roomPrices.currency || 'USD',
+        images: result.images.length > 0 ? result.images : [''],
+        description: result.aiAnalysis.summary,
+        amenities: [], // API doesn't provide amenities
+        location: result.address,
+        bookingUrl: '', // API doesn't provide booking URL
+        aiAnalysis: result.aiAnalysis,
+        reviewSnippets: result.reviews.snippets || [],
+      }));
+
+      setHotels(convertedHotels);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'An error occurred while searching for hotels');
+      } else {
+        setError('Failed to search for hotels. Please try again.');
+      }
+      console.error('Error fetching hotels:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [preferences.city, preferences.checkIn, preferences.checkOut, preferences.priceRange, preferences.locationPreferences, preferences.tripType]);
+
+  useEffect(() => {
+    fetchHotels();
+  }, [fetchHotels]);
+
+  const handleRetry = () => {
+    fetchHotels();
   };
 
   const handleViewDetails = (hotelId: string) => {
@@ -28,6 +84,15 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
 
   const handleSelectHotel = (hotel: Hotel) => {
     onHotelSelect(hotel);
+  };
+
+  // Calculate number of nights
+  const getNights = () => {
+    const checkInDate = new Date(preferences.checkIn);
+    const checkOutDate = new Date(preferences.checkOut);
+    const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   return (
@@ -47,7 +112,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
                     Hotels in {preferences.city}
                   </CardTitle>
                   <CardDescription>
-                    {preferences.duration} nights • {preferences.tripType}
+                    {getNights()} nights • {preferences.checkIn} to {preferences.checkOut}
                     {preferences.locationPreferences && (
                       <> • {preferences.locationPreferences}</>
                     )}
@@ -59,36 +124,70 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
               </div>
             </CardHeader>
             <CardFooter>
-              <Button onClick={handleRetry} variant="outline" className="w-full sm:w-auto">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Show Different Hotels
+              <Button 
+                onClick={handleRetry} 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Searching...' : 'Search Again'}
               </Button>
             </CardFooter>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {hotels.map((hotel) => (
-            <HotelCard
-              key={hotel.id}
-              hotel={hotel}
-              isExpanded={selectedHotelId === hotel.id}
-              onViewDetails={() => handleViewDetails(hotel.id)}
-              onSelect={() => handleSelectHotel(hotel)}
-            />
-          ))}
-        </div>
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-4" />
+            <p className="text-muted-foreground">Searching for hotels...</p>
+          </div>
+        )}
 
-        <div className="mt-8 text-center">
-          <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-0">
-            <CardContent className="pt-6">
-              <Sparkles className="w-8 h-8 mx-auto mb-2" />
-              <p>
-                Choose a hotel to continue to restaurant and activity recommendations
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {!loading && !error && hotels.length === 0 && (
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No Hotels Found</AlertTitle>
+            <AlertDescription>
+              We couldn't find any hotels matching your criteria. Try adjusting your search parameters.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!loading && hotels.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {hotels.map((hotel) => (
+                <HotelCard
+                  key={hotel.id}
+                  hotel={hotel}
+                  isExpanded={selectedHotelId === hotel.id}
+                  onViewDetails={() => handleViewDetails(hotel.id)}
+                  onSelect={() => handleSelectHotel(hotel)}
+                />
+              ))}
+            </div>
+
+            <div className="mt-8 text-center">
+              <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-0">
+                <CardContent className="pt-6">
+                  <Sparkles className="w-8 h-8 mx-auto mb-2" />
+                  <p>
+                    Choose a hotel to continue to restaurant and activity recommendations
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
