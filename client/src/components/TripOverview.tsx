@@ -37,10 +37,35 @@ export function TripOverview({
   onBack,
   onStartNew,
 }: TripOverviewProps) {
-  const totalCost = hotel.price + (restaurants.length * 75) + activities.reduce((sum, activity) => {
-    const price = parseInt(activity.price.replace(/\D/g, '')) || 0;
-    return sum + price;
+  // Calculate duration from checkIn and checkOut dates
+  const calculateDuration = () => {
+    if (preferences.checkIn && preferences.checkOut) {
+      const checkIn = new Date(preferences.checkIn);
+      const checkOut = new Date(preferences.checkOut);
+      const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    }
+    return 0;
+  };
+
+  const duration = calculateDuration();
+
+  // Calculate total cost
+  const hotelCost = hotel.price || 0;
+  const restaurantEstimate = restaurants.length * 75; // Rough estimate per restaurant
+  const activityEstimate = activities.reduce((sum, activity) => {
+    // Try to extract price from priceInfo string, otherwise estimate $25 per activity
+    if (activity.priceInfo && activity.priceInfo !== 'Price varies') {
+      const priceMatch = activity.priceInfo.match(/\$?(\d+)/);
+      if (priceMatch) {
+        return sum + parseInt(priceMatch[1]);
+      }
+    }
+    return sum + 25; // Default estimate
   }, 0);
+  
+  const totalCost = hotelCost + restaurantEstimate + activityEstimate;
 
   const handlePrint = () => {
     window.print();
@@ -120,7 +145,7 @@ export function TripOverview({
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Duration</p>
-                <span>{preferences.duration} nights</span>
+                <span>{duration} {duration === 1 ? 'night' : 'nights'}</span>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Budget</p>
@@ -162,7 +187,7 @@ export function TripOverview({
             <div className="flex flex-col md:flex-row gap-4">
               <div className="w-full md:w-48 h-32 flex-shrink-0">
                 <ImageWithFallback
-                  src={hotel.image}
+                  src={hotel.images && hotel.images.length > 0 ? hotel.images[0] : ''}
                   alt={hotel.name}
                   className="w-full h-full object-cover rounded-lg"
                 />
@@ -191,17 +216,29 @@ export function TripOverview({
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xl">${hotel.price}</span>
-                    <span className="text-sm text-muted-foreground ml-2">
-                      (${hotel.pricePerNight}/night)
-                    </span>
+                    {hotel.price !== null ? (
+                      <>
+                        <span className="text-xl">
+                          {hotel.currency === 'USD' ? '$' : hotel.currency}{hotel.price.toLocaleString()}
+                        </span>
+                        {hotel.pricePerNight !== null && (
+                          <span className="text-sm text-muted-foreground ml-2">
+                            ({hotel.currency === 'USD' ? '$' : hotel.currency}{hotel.pricePerNight.toLocaleString()}/night)
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Price not available</span>
+                    )}
                   </div>
-                  <Button variant="outline" size="sm" asChild className="print:hidden">
-                    <a href={hotel.bookingUrl} target="_blank" rel="noopener noreferrer">
-                      View Booking
-                      <ExternalLink className="w-3 h-3 ml-2" />
-                    </a>
-                  </Button>
+                  {hotel.bookingUrl && (
+                    <Button variant="outline" size="sm" asChild className="print:hidden">
+                      <a href={hotel.bookingUrl} target="_blank" rel="noopener noreferrer">
+                        View Booking
+                        <ExternalLink className="w-3 h-3 ml-2" />
+                      </a>
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -224,7 +261,7 @@ export function TripOverview({
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="w-full md:w-32 h-24 flex-shrink-0">
                       <ImageWithFallback
-                        src={restaurant.image}
+                        src={restaurant.images && restaurant.images.length > 0 ? restaurant.images[0] : ''}
                         alt={restaurant.name}
                         className="w-full h-full object-cover rounded-lg"
                       />
@@ -234,14 +271,16 @@ export function TripOverview({
                         <div>
                           <h4 className="mb-1">{restaurant.name}</h4>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Badge variant="outline" className="text-xs">
-                              {restaurant.cuisine}
-                            </Badge>
-                            <span>•</span>
-                            <span>{restaurant.priceLevel}</span>
-                            <span>•</span>
+                            {restaurant.priceLevel && (
+                              <>
+                                <Badge variant="outline" className="text-xs">
+                                  {restaurant.priceLevel}
+                                </Badge>
+                                <span>•</span>
+                              </>
+                            )}
                             <MapPin className="w-3 h-3" />
-                            <span>{restaurant.distance}</span>
+                            <span>{restaurant.distance?.text || 'Unknown distance'}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
@@ -286,7 +325,7 @@ export function TripOverview({
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="w-full md:w-32 h-24 flex-shrink-0">
                       <ImageWithFallback
-                        src={activity.image}
+                        src={activity.images && activity.images.length > 0 ? activity.images[0] : ''}
                         alt={activity.name}
                         className="w-full h-full object-cover rounded-lg"
                       />
@@ -296,35 +335,57 @@ export function TripOverview({
                         <div>
                           <h4 className="mb-1">{activity.name}</h4>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Badge variant="outline" className="text-xs">
-                              {activity.category}
-                            </Badge>
+                            {activity.activityType && (
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {activity.activityType}
+                              </Badge>
+                            )}
+                            {activity.distance && (
+                              <>
+                                <span>•</span>
+                                <MapPin className="w-3 h-3" />
+                                <span>{activity.distance.text}</span>
+                              </>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm">{activity.rating.toFixed(1)}</span>
-                        </div>
+                        {activity.rating > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                            <span className="text-sm">{activity.rating.toFixed(1)}</span>
+                            {activity.totalReviews > 0 && (
+                              <span className="text-xs text-muted-foreground">({activity.totalReviews})</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
                         {activity.description}
                       </p>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {activity.duration}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="w-3 h-3" />
-                          {activity.price}
-                        </div>
+                        {activity.priceInfo && activity.priceInfo !== 'Price varies' && (
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            {activity.priceInfo}
+                          </div>
+                        )}
                       </div>
-                      <Button variant="link" size="sm" className="p-0 h-auto print:hidden" asChild>
-                        <a href={activity.bookingUrl} target="_blank" rel="noopener noreferrer">
-                          Book Activity
-                          <ExternalLink className="w-3 h-3 ml-1" />
-                        </a>
-                      </Button>
+                      {activity.bookingUrl && (
+                        <Button variant="link" size="sm" className="p-0 h-auto print:hidden" asChild>
+                          <a href={activity.bookingUrl} target="_blank" rel="noopener noreferrer">
+                            Book Activity
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </a>
+                        </Button>
+                      )}
+                      {!activity.bookingUrl && (
+                        <Button variant="link" size="sm" className="p-0 h-auto print:hidden" asChild>
+                          <a href={`https://www.google.com/maps/place/?q=place_id:${activity.id}`} target="_blank" rel="noopener noreferrer">
+                            View on Google Maps
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </a>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>

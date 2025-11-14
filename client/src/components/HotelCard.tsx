@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Hotel } from '../types';
-import { Star, MapPin, ExternalLink, ChevronDown, Brain, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, MapPin, ExternalLink, ChevronDown, ChevronUp, Brain, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface HotelCardProps {
