@@ -28,25 +28,44 @@ export interface Hotel {
 }
 
 export interface Restaurant {
-  id: string;
+  id: string; // placeId from API
   name: string;
-  cuisine: string;
   rating: number;
+  totalReviews: number;
   priceLevel: string;
-  image: string;
-  description: string;
-  distance: string;
-  googlePlacesUrl: string;
+  images: string[]; // Multiple images from API
+  description: string; // AI analysis summary
+  address: string;
+  distance: {
+    meters: number;
+    text: string;
+  };
+  aiAnalysis: {
+    relevanceScore: number; // 1-10
+    summary: string;
+  };
+  reviewSnippets: string[];
+  googlePlacesUrl: string; // Can be constructed from placeId
 }
 
 export interface Activity {
-  id: string;
+  id: string; // placeId from API
   name: string;
-  category: string;
   rating: number;
-  price: string;
-  image: string;
-  description: string;
-  duration: string;
-  bookingUrl: string;
+  totalReviews: number;
+  priceInfo: string;
+  images: string[]; // Images from API
+  description: string; // AI analysis summary
+  address: string;
+  distance: {
+    meters: number;
+    text: string;
+  };
+  aiAnalysis: {
+    relevanceScore: number; // 1-10
+    summary: string;
+  };
+  activityType: string;
+  reviewSnippets: string[];
+  bookingUrl: string; // Not provided by API, empty string
 }

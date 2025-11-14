@@ -50,20 +50,44 @@ Return ONLY the search query string, nothing else."""
     
     def generate_activity_search_query(self, address: str, price_range: str,
                                       max_distance: str, search_prompt: str) -> str:
-        """Generate an optimized search query for activity search."""
-        prompt = f"""Generate a concise, optimal search query string for finding activities near {address} with these criteria:
+        """Generate an optimal search query for activity search that includes various establishment types."""
+        prompt = f"""Generate a comprehensive, optimal search query string for Google Places API to find activities and attractions near {address} with these criteria:
 - Price range: {price_range if price_range else 'any'}
 - Max distance: {max_distance if max_distance else 'no limit'}
-- Search description: {search_prompt}
+- User preferences: {search_prompt}
 
-Return ONLY the search query string, nothing else."""
+IMPORTANT: The query should include various types of activities and establishments such as:
+- Tourist attractions, landmarks, museums, art galleries
+- Entertainment venues: movie theatres, concert halls, comedy clubs, arcades, bowling alleys
+- Recreation: parks, zoos, aquariums, botanical gardens, sports facilities
+- Cultural sites: historical sites, monuments, theaters, opera houses
+- Shopping and markets: shopping malls, markets, boutiques
+- Other activities: escape rooms, trampoline parks, laser tag, go-kart tracks
+
+The query should be natural language and work well with Google Places text search. Include location context (near {address}) and activity types that match the user's preferences.
+
+Return ONLY the search query string (2-10 words max), nothing else. Example format: "museums parks movie theatres near {address}"
+        
+Query:"""
         
         try:
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=50
+                )
+            )
+            query = response.text.strip()
+            # Clean up the response if it has quotes or extra text
+            query = query.strip('"\'')
+            if not query or len(query) < 5:
+                # Fallback query
+                return f"{search_prompt} near {address}"
+            return query
         except Exception as e:
             print(f"Error generating activity search query: {e}")
-            return f"activities near {address}"
+            return f"{search_prompt} attractions activities near {address}"
     
     def score_hotel(self, hotel: Dict[str, Any], city: str, check_in: str, check_out: str,
                    price_range: str, location_prefs: str, trip_description: str) -> Dict[str, Any]:

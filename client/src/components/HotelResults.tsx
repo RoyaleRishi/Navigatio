@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { HotelCard } from './HotelCard';
 import { Hotel, TripPreferences } from '../types';
 import { apiService, ApiError } from '../services/api';
-import { ArrowLeft, RefreshCw, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Sparkles, AlertCircle, Loader2, Plus } from 'lucide-react';
 
 interface HotelResultsProps {
   preferences: TripPreferences;
@@ -17,14 +17,24 @@ interface HotelResultsProps {
 export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResultsProps) {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   // Convert TripPreferences to API format and fetch hotels
-  const fetchHotels = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setSelectedHotelId(null);
+  const fetchHotels = useCallback(async (excludeExisting: boolean = false, existingHotelNames: string[] = []) => {
+    // Set loading state immediately
+    if (excludeExisting) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setError(null);
+      setSelectedHotelId(null);
+    }
+
+    // Defer the actual fetch to next event loop tick to ensure UI renders first
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     try {
       const response = await apiService.searchHotels({
@@ -36,7 +46,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
         priceRange: preferences.priceRange,
         locationPreferences: preferences.locationPreferences,
         tripDescription: preferences.tripType,
-        excludedHotels: [],
+        excludedHotels: excludeExisting ? existingHotelNames : [],
       });
 
       // Convert API response to Hotel format
@@ -57,7 +67,16 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
         reviewSnippets: result.reviews.snippets || [],
       }));
 
-      setHotels(convertedHotels);
+      // Update hotels (append if loading more, replace if new search)
+      startTransition(() => {
+        if (excludeExisting) {
+          setHotels(prev => [...prev, ...convertedHotels]);
+          setLoadingMore(false);
+        } else {
+          setHotels(convertedHotels);
+          setLoading(false);
+        }
+      });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message || 'An error occurred while searching for hotels');
@@ -65,17 +84,35 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
         setError('Failed to search for hotels. Please try again.');
       }
       console.error('Error fetching hotels:', err);
-    } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [preferences.city, preferences.checkIn, preferences.checkOut, preferences.priceRange, preferences.locationPreferences, preferences.tripType]);
+  }, [preferences.city, preferences.checkIn, preferences.checkOut, preferences.priceRange, preferences.locationPreferences, preferences.tripType, startTransition]);
 
   useEffect(() => {
-    fetchHotels();
-  }, [fetchHotels]);
+    // Only fetch on initial mount or when preferences change
+    const fetchInitial = async () => {
+      setLoading(true);
+      setError(null);
+      setSelectedHotelId(null);
+      
+      // Ensure React renders loading state first by deferring to next tick
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      await fetchHotels(false, []);
+    };
+    
+    fetchInitial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferences.city, preferences.checkIn, preferences.checkOut, preferences.priceRange, preferences.locationPreferences, preferences.tripType]); // Only depend on preferences
 
   const handleRetry = () => {
-    fetchHotels();
+    fetchHotels(false, []);
+  };
+
+  const handleLoadMore = () => {
+    const existingNames = hotels.map(h => h.name);
+    fetchHotels(true, existingNames);
   };
 
   const handleViewDetails = (hotelId: string) => {
@@ -123,16 +160,27 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
                 </Badge>
               </div>
             </CardHeader>
-            <CardFooter>
+            <CardFooter className="flex gap-2">
               <Button 
                 onClick={handleRetry} 
                 variant="outline" 
-                className="w-full sm:w-auto"
-                disabled={loading}
+                className="flex-1 sm:flex-none"
+                disabled={loading || loadingMore}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? 'Searching...' : 'Search Again'}
               </Button>
+              {hotels.length > 0 && !loading && (
+                <Button 
+                  onClick={handleLoadMore} 
+                  variant="outline" 
+                  className="flex-1 sm:flex-none"
+                  disabled={loadingMore}
+                >
+                  <Plus className={`w-4 h-4 mr-2 ${loadingMore ? 'animate-spin' : ''}`} />
+                  {loadingMore ? 'Loading...' : 'Load More'}
+                </Button>
+              )}
             </CardFooter>
           </Card>
         </div>
@@ -141,6 +189,14 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-4" />
             <p className="text-muted-foreground">Searching for hotels...</p>
+            <p className="text-xs text-muted-foreground mt-2">This may take a few moments...</p>
+          </div>
+        )}
+
+        {loadingMore && (
+          <div className="flex flex-col items-center justify-center py-6">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-500 mb-2" />
+            <p className="text-sm text-muted-foreground">Loading more hotels...</p>
           </div>
         )}
 
@@ -176,16 +232,18 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
               ))}
             </div>
 
-            <div className="mt-8 text-center">
-              <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-0">
-                <CardContent className="pt-6">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2" />
-                  <p>
-                    Choose a hotel to continue to restaurant and activity recommendations
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+            {!loadingMore && (
+              <div className="mt-8 text-center">
+                <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-0">
+                  <CardContent className="pt-6">
+                    <Sparkles className="w-8 h-8 mx-auto mb-2" />
+                    <p>
+                      Choose a hotel to continue to restaurant and activity recommendations
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </>
         )}
       </div>

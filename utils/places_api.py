@@ -55,7 +55,7 @@ class PlacesAPI:
             'user_ratings_total', 'price_level', 'types', 'photos',
             'reviews', 'website', 'formatted_phone_number',
             'wheelchair_accessible_entrance', 'serves_vegetarian_food',
-            'serves_vegan_food', 'opening_hours', 'editorial_summary'
+            'opening_hours', 'editorial_summary'
         ]
         
         url = f"{self.base_url}/details/json"
@@ -427,11 +427,14 @@ class PlacesAPI:
     
     def search_activities(self, address: str, price_range: str, max_distance: str,
                          search_prompt: str) -> List[Dict[str, Any]]:
-        """Search for activities and attractions near an address."""
+        """Search for activities and attractions near an address using text search."""
         # Get address coordinates
         coords = self._get_place_coordinates(address)
         if not coords:
             return []
+        
+        # Use text search for more flexibility - this will be called from app.py after Gemini generates the query
+        # For now, we'll use a combination of nearbysearch with multiple types
         
         # Convert max_distance to meters
         radius = 10000  # Default 10km
@@ -452,14 +455,25 @@ class PlacesAPI:
             elif 'walking' in max_distance_lower:
                 radius = 2000  # 2km for walking distance
         
-        # Search for tourist attractions and related places
-        url = f"{self.base_url}/nearbysearch/json"
+        # Use textsearch for more flexible results that can include movie theatres, entertainment, etc.
+        # Text search with location bias - search_prompt should already be a Gemini-generated query
+        url = f"{self.base_url}/textsearch/json"
+        # The search_prompt is now a Gemini-generated query that may already include location
+        # If it doesn't, we add "near {address}" but if it does, we use it as-is
+        if address.lower() not in search_prompt.lower():
+            query_text = f"{search_prompt} near {address}"
+        else:
+            query_text = search_prompt
+        
         params = {
+            "query": query_text,
             "location": f"{coords['lat']},{coords['lng']}",
             "radius": radius,
-            "type": "tourist_attraction",
             "key": self.api_key
         }
+        
+        print(f"[DEBUG] Searching activities with query: {query_text}")
+        print(f"[DEBUG] Location: {coords['lat']},{coords['lng']}, Radius: {radius}m")
         
         activities = []
         next_page_token = None
@@ -468,19 +482,15 @@ class PlacesAPI:
         ref_lat = coords['lat']
         ref_lng = coords['lng']
         
-        while len(activities) < max_results:
-            try:
-                if next_page_token:
-                    params['pagetoken'] = next_page_token
-                    time.sleep(2)
-                
-                response = requests.get(url, params=params)
-                response.raise_for_status()
-                data = response.json()
-                
-                if data.get('status') != 'OK':
-                    break
-                
+        try:
+            # First search
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            print(f"[DEBUG] Text search status: {data.get('status')}")
+            
+            if data.get('status') == 'OK':
                 for place in data.get('results', []):
                     if len(activities) < max_results:
                         place_loc = place.get('geometry', {}).get('location', {})
@@ -493,7 +503,7 @@ class PlacesAPI:
                         activities.append({
                             'name': place.get('name'),
                             'placeId': place.get('place_id'),
-                            'address': place.get('vicinity') or place.get('formatted_address', ''),
+                            'address': place.get('formatted_address', ''),
                             'location': place_loc,
                             'rating': place.get('rating', 0),
                             'user_ratings_total': place.get('user_ratings_total', 0),
@@ -502,13 +512,43 @@ class PlacesAPI:
                             'distance_meters': distance_meters
                         })
                 
+                # Try to get more results if we have a next page token
                 next_page_token = data.get('next_page_token')
-                if not next_page_token:
-                    break
+                if next_page_token and len(activities) < max_results:
+                    time.sleep(2)  # Required delay for next page token
+                    params['pagetoken'] = next_page_token
+                    response = requests.get(url, params=params)
+                    response.raise_for_status()
+                    data = response.json()
                     
-            except Exception as e:
-                print(f"Error searching activities: {e}")
-                break
+                    if data.get('status') == 'OK':
+                        for place in data.get('results', []):
+                            if len(activities) < max_results:
+                                place_loc = place.get('geometry', {}).get('location', {})
+                                dist_meters = self._calculate_distance(
+                                    ref_lat, ref_lng,
+                                    place_loc.get('lat', ref_lat),
+                                    place_loc.get('lng', ref_lng)
+                                )
+                                
+                                activities.append({
+                                    'name': place.get('name'),
+                                    'placeId': place.get('place_id'),
+                                    'address': place.get('formatted_address', ''),
+                                    'location': place_loc,
+                                    'rating': place.get('rating', 0),
+                                    'user_ratings_total': place.get('user_ratings_total', 0),
+                                    'types': place.get('types', []),
+                                    'photos': place.get('photos', []),
+                                    'distance_meters': dist_meters
+                                })
+            else:
+                print(f"[WARNING] Text search failed with status: {data.get('status')}")
+                print(f"[WARNING] Error message: {data.get('error_message', 'Unknown error')}")
+        except Exception as e:
+            print(f"Error searching activities: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Get detailed information for each activity
         detailed_activities = []

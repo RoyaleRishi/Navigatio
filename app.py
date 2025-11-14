@@ -333,9 +333,11 @@ def search_activities():
             address, price_range, max_distance, search_prompt
         )
         
-        # Search for activities using Google Places
+        print(f"[DEBUG] Generated activity search query: {search_query}")
+        
+        # Search for activities using Google Places with the Gemini-generated query
         activities = places_api.search_activities(
-            address, price_range, max_distance, search_prompt
+            address, price_range, max_distance, search_query  # Use the Gemini-generated query instead of search_prompt
         )
         
         if not activities:
