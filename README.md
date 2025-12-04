@@ -71,3 +71,4 @@ Navigatio is an AI-powered travel assistant that helps users find hotels, restau
 *   **Restaurant Pricing**: Price levels are indicated using Google's standard notation (e.g., $, $$, $$$).
 *   **Performance**: AI analysis is run in parallel to optimize speed, but **response times usually take 1-2 minutes to appear** due to the depth of processing.
 *   **API Documentation**: For detailed API endpoint information, please refer to `server/api.md`.
+*   **Project Structure**: For an overview of the project's file structure, see `project_structure.md`.
