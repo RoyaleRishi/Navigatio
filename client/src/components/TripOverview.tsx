@@ -14,7 +14,6 @@ import {
   Share2,
   Star,
   DollarSign,
-  Clock,
   ExternalLink,
   CheckCircle2,
 } from 'lucide-react';
@@ -29,6 +28,12 @@ interface TripOverviewProps {
   onStartNew: () => void;
 }
 
+/**
+ * Trip Overview Component
+ * Displays the final itinerary summary including the selected hotel,
+ * saved restaurants, and saved activities.
+ * Allows users to print/download or start a new trip.
+ */
 export function TripOverview({
   preferences,
   hotel,
@@ -37,7 +42,7 @@ export function TripOverview({
   onBack,
   onStartNew,
 }: TripOverviewProps) {
-  // Calculate duration from checkIn and checkOut dates
+  // Helper: Calculate duration of the trip in days based on check-in/out dates
   const calculateDuration = () => {
     if (preferences.checkIn && preferences.checkOut) {
       const checkIn = new Date(preferences.checkIn);
@@ -51,26 +56,28 @@ export function TripOverview({
 
   const duration = calculateDuration();
 
-  // Calculate total cost
+  // Helper: Estimate total cost of the trip
   const hotelCost = hotel.price || 0;
-  const restaurantEstimate = restaurants.length * 75; // Rough estimate per restaurant
+  const restaurantEstimate = restaurants.length * 75; // Rough estimate: $75 per restaurant visit
   const activityEstimate = activities.reduce((sum, activity) => {
-    // Try to extract price from priceInfo string, otherwise estimate $25 per activity
+    // Try to extract numeric price from price string (e.g., "$50"), otherwise default to $25
     if (activity.priceInfo && activity.priceInfo !== 'Price varies') {
       const priceMatch = activity.priceInfo.match(/\$?(\d+)/);
       if (priceMatch) {
         return sum + parseInt(priceMatch[1]);
       }
     }
-    return sum + 25; // Default estimate
+    return sum + 25; // Default fallback per activity
   }, 0);
   
   const totalCost = hotelCost + restaurantEstimate + activityEstimate;
 
+  // Handler: Trigger browser print dialog
   const handlePrint = () => {
     window.print();
   };
 
+  // Handler: Placeholder for sharing functionality
   const handleShare = () => {
     alert('Share functionality would open a modal to share via email or social media');
   };
@@ -78,7 +85,7 @@ export function TripOverview({
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
+        {/* Header Section with Actions */}
         <div className="mb-8 print:mb-4">
           <Button variant="ghost" onClick={onBack} className="mb-4 print:hidden">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -126,7 +133,7 @@ export function TripOverview({
           </Card>
         </div>
 
-        {/* Trip Details Summary */}
+        {/* Trip Details Summary (Dates, Budget, Cost) */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -175,7 +182,7 @@ export function TripOverview({
           </CardContent>
         </Card>
 
-        {/* Hotel Section */}
+        {/* Selected Hotel Section */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -245,7 +252,7 @@ export function TripOverview({
           </CardContent>
         </Card>
 
-        {/* Restaurants Section */}
+        {/* Restaurants List Section */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -309,7 +316,7 @@ export function TripOverview({
           </CardContent>
         </Card>
 
-        {/* Activities Section */}
+        {/* Activities List Section */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -394,7 +401,7 @@ export function TripOverview({
           </CardContent>
         </Card>
 
-        {/* Summary Footer */}
+        {/* Footer Section */}
         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
           <CardContent className="pt-6">
             <div className="text-center">

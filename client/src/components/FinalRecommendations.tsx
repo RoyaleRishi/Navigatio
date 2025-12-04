@@ -17,16 +17,27 @@ interface FinalRecommendationsProps {
   onSaveTrip: (restaurants: Restaurant[], activities: Activity[]) => void;
 }
 
+/**
+ * Final Recommendations Component
+ * Handles the generation of restaurant and activity recommendations
+ * based on the selected hotel and user's specific preferences for dining/activities.
+ */
 export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }: FinalRecommendationsProps) {
+  // State for detailed preferences (dining, activities, dietary)
   const [restaurantPreferences, setRestaurantPreferences] = useState('');
   const [dietaryPreferences, setDietaryPreferences] = useState('');
   const [activityPreferences, setActivityPreferences] = useState('');
+  
+  // State for recommendations
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  
+  // UI States
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Core function to fetch recommendations from API
   const fetchRecommendations = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -46,22 +57,22 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
         foodRestrictions.push(...restrictions);
       }
 
-      // Make both API calls in parallel
+      // Make both API calls in parallel for efficiency
       const [restaurantResponse, activityResponse] = await Promise.all([
         apiService.searchRestaurants({
-          address: hotel.location,
+          address: hotel.location, // Search around the selected hotel
           priceRange: preferences.priceRange,
           eatingPreferences: restaurantPreferences || undefined,
           foodRestrictions: foodRestrictions.length > 0 ? foodRestrictions : undefined,
         }),
         apiService.searchActivities({
-          address: hotel.location,
+          address: hotel.location, // Search around the selected hotel
           priceRange: preferences.priceRange,
           searchPrompt: activityPreferences || 'Popular tourist attractions and activities',
         }),
       ]);
 
-      // Convert restaurant API response to Restaurant format
+      // Convert restaurant API response to internal Restaurant format
       const convertedRestaurants: Restaurant[] = restaurantResponse.data.results.map((result, index) => ({
         id: result.placeId || `restaurant-${index}`,
         name: result.name,
@@ -77,7 +88,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
         googlePlacesUrl: `https://www.google.com/maps/place/?q=place_id:${result.placeId}`,
       }));
 
-      // Convert activity API response to Activity format
+      // Convert activity API response to internal Activity format
       const convertedActivities: Activity[] = activityResponse.data.results.map((result, index) => ({
         id: result.placeId || `activity-${index}`,
         name: result.name,
@@ -109,6 +120,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
     }
   }, [hotel.location, preferences.priceRange, dietaryPreferences, restaurantPreferences, activityPreferences]);
 
+  // Handlers
   const handleSubmit = () => {
     fetchRecommendations();
   };
@@ -121,6 +133,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
     onSaveTrip(restaurants, activities);
   };
 
+  // If not yet submitted, show the preferences form
   if (!hasSubmitted) {
     return (
       <div className="min-h-screen p-6">
@@ -240,6 +253,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
         <div className="mb-8">
           <Button variant="ghost" onClick={onBack} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -270,6 +284,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
           </Card>
         </div>
 
+        {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-4" />
@@ -278,6 +293,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
           </div>
         )}
 
+        {/* Error State */}
         {error && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
@@ -286,6 +302,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
           </Alert>
         )}
 
+        {/* Results Section */}
         {!loading && !error && (
           <>
             {/* Hotel Information Card */}
@@ -327,7 +344,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
               </CardContent>
             </Card>
 
-            {/* Restaurants Section */}
+            {/* Restaurants List */}
             <div className="mb-12">
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-gradient-to-br from-orange-500 to-red-600 p-3 rounded-lg">
@@ -359,7 +376,7 @@ export function FinalRecommendations({ preferences, hotel, onBack, onSaveTrip }:
               )}
             </div>
 
-            {/* Activities Section */}
+            {/* Activities List */}
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-lg">

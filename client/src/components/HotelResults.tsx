@@ -14,17 +14,29 @@ interface HotelResultsProps {
   onBack: () => void;
 }
 
+/**
+ * Hotel Results Component
+ * Displays a list of hotels matching the user's search criteria.
+ * Handles fetching data from the API, pagination (load more), and error states.
+ */
 export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResultsProps) {
+  // State for storing list of hotels
   const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  
+  // UI States
+  const [loading, setLoading] = useState(true); // Initial load
+  const [loadingMore, setLoadingMore] = useState(false); // Loading additional results
   const [error, setError] = useState<string | null>(null);
+  
+  // Tracks which hotel card is expanded to show more details
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
+  
+  // useTransition for smoother state updates
   const [isPending, startTransition] = useTransition();
 
-  // Convert TripPreferences to API format and fetch hotels
+  // Core function to fetch hotel data
   const fetchHotels = useCallback(async (excludeExisting: boolean = false, existingHotelNames: string[] = []) => {
-    // Set loading state immediately
+    // Update appropriate loading state
     if (excludeExisting) {
       setLoadingMore(true);
     } else {
@@ -33,10 +45,11 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
       setSelectedHotelId(null);
     }
 
-    // Defer the actual fetch to next event loop tick to ensure UI renders first
+    // Defer the actual fetch to next event loop tick to ensure UI renders loading state first
     await new Promise(resolve => setTimeout(resolve, 0));
 
     try {
+      // Call the API service
       const response = await apiService.searchHotels({
         city: preferences.city,
         dateRange: {
@@ -46,10 +59,10 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
         priceRange: preferences.priceRange,
         locationPreferences: preferences.locationPreferences,
         tripDescription: preferences.tripType,
-        excludedHotels: excludeExisting ? existingHotelNames : [],
+        excludedHotels: excludeExisting ? existingHotelNames : [], // Avoid duplicates when loading more
       });
 
-      // Convert API response to Hotel format
+      // Map API response to internal Hotel type
       const convertedHotels: Hotel[] = response.data.results.map((result, index) => ({
         id: result.placeId || `hotel-${index}`,
         name: result.name,
@@ -60,20 +73,20 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
         currency: result.roomPrices.currency || 'USD',
         images: result.images.length > 0 ? result.images : [''],
         description: result.aiAnalysis.summary,
-        amenities: [], // API doesn't provide amenities
+        amenities: [], // API currently doesn't return amenities list
         location: result.address,
-        bookingUrl: '', // API doesn't provide booking URL
+        bookingUrl: '', // API currently doesn't return direct booking links
         aiAnalysis: result.aiAnalysis,
         reviewSnippets: result.reviews.snippets || [],
       }));
 
-      // Update hotels (append if loading more, replace if new search)
+      // Update state with new data
       startTransition(() => {
         if (excludeExisting) {
-          setHotels(prev => [...prev, ...convertedHotels]);
+          setHotels(prev => [...prev, ...convertedHotels]); // Append for load more
           setLoadingMore(false);
         } else {
-          setHotels(convertedHotels);
+          setHotels(convertedHotels); // Replace for fresh search
           setLoading(false);
         }
       });
@@ -89,14 +102,14 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
     }
   }, [preferences.city, preferences.checkIn, preferences.checkOut, preferences.priceRange, preferences.locationPreferences, preferences.tripType, startTransition]);
 
+  // Effect: Trigger initial fetch on mount or when preferences change
   useEffect(() => {
-    // Only fetch on initial mount or when preferences change
     const fetchInitial = async () => {
       setLoading(true);
       setError(null);
       setSelectedHotelId(null);
       
-      // Ensure React renders loading state first by deferring to next tick
+      // Ensure React renders loading state first
       await new Promise(resolve => setTimeout(resolve, 0));
       
       await fetchHotels(false, []);
@@ -104,8 +117,9 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
     
     fetchInitial();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferences.city, preferences.checkIn, preferences.checkOut, preferences.priceRange, preferences.locationPreferences, preferences.tripType]); // Only depend on preferences
+  }, [preferences.city, preferences.checkIn, preferences.checkOut, preferences.priceRange, preferences.locationPreferences, preferences.tripType]);
 
+  // Handlers
   const handleRetry = () => {
     fetchHotels(false, []);
   };
@@ -116,6 +130,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
   };
 
   const handleViewDetails = (hotelId: string) => {
+    // Toggle expansion: close if already open, otherwise open selected
     setSelectedHotelId(selectedHotelId === hotelId ? null : hotelId);
   };
 
@@ -123,7 +138,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
     onHotelSelect(hotel);
   };
 
-  // Calculate number of nights
+  // Helper: Calculate duration in nights
   const getNights = () => {
     const checkInDate = new Date(preferences.checkIn);
     const checkOutDate = new Date(preferences.checkOut);
@@ -135,6 +150,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
         <div className="mb-8">
           <Button variant="ghost" onClick={onBack} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -185,6 +201,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
           </Card>
         </div>
 
+        {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-4" />
@@ -193,6 +210,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
           </div>
         )}
 
+        {/* Loading More State */}
         {loadingMore && (
           <div className="flex flex-col items-center justify-center py-6">
             <Loader2 className="w-6 h-6 animate-spin text-blue-500 mb-2" />
@@ -200,6 +218,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
           </div>
         )}
 
+        {/* Error State */}
         {error && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
@@ -208,6 +227,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
           </Alert>
         )}
 
+        {/* Empty State */}
         {!loading && !error && hotels.length === 0 && (
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
@@ -218,6 +238,7 @@ export function HotelResults({ preferences, onHotelSelect, onBack }: HotelResult
           </Alert>
         )}
 
+        {/* Results Grid */}
         {!loading && hotels.length > 0 && (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

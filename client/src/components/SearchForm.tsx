@@ -11,7 +11,13 @@ interface SearchFormProps {
   onSubmit: (preferences: TripPreferences) => void;
 }
 
+/**
+ * Search Form Component
+ * The initial step of the application where users input their travel preferences.
+ * Collects destination, dates, budget, and trip description.
+ */
 export function SearchForm({ onSubmit }: SearchFormProps) {
+  // Form state
   const [city, setCity] = useState('');
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
@@ -19,7 +25,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
   const [priceRange, setPriceRange] = useState('');
   const [locationPreferences, setLocationPreferences] = useState('');
 
-  // Calculate minimum check-out date (day after check-in)
+  // Helper: Calculate minimum valid check-out date (must be after check-in)
   const getMinCheckOutDate = () => {
     if (!checkIn) return '';
     const checkInDate = new Date(checkIn);
@@ -27,10 +33,12 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
     return checkInDate.toISOString().split('T')[0];
   };
 
-  // Set default check-out to day after check-in
+  // Handler: When check-in changes, ensure check-out is valid
   const handleCheckInChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newCheckIn = e.target.value;
     setCheckIn(newCheckIn);
+    
+    // If check-out is empty or invalid relative to new check-in, update it
     if (newCheckIn && (!checkOut || checkOut <= newCheckIn)) {
       const checkInDate = new Date(newCheckIn);
       checkInDate.setDate(checkInDate.getDate() + 1);
@@ -38,8 +46,10 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
     }
   };
 
+  // Handler: Submit the form data
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Basic validation before submitting
     if (city && checkIn && checkOut && tripType && priceRange) {
       onSubmit({
         city,
@@ -68,6 +78,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* City / Destination Input */}
             <div className="space-y-2">
               <Label htmlFor="city" className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
@@ -82,6 +93,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
               />
             </div>
 
+            {/* Date Selection Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="checkIn" className="flex items-center gap-2">
@@ -91,7 +103,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
                 <Input
                   id="checkIn"
                   type="date"
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toISOString().split('T')[0]} // Prevent past dates
                   value={checkIn}
                   onChange={handleCheckInChange}
                   required
@@ -105,7 +117,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
                 <Input
                   id="checkOut"
                   type="date"
-                  min={getMinCheckOutDate()}
+                  min={getMinCheckOutDate()} // Prevent invalid date ranges
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
                   required
@@ -113,6 +125,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
               </div>
             </div>
 
+            {/* Price Range / Budget Input */}
             <div className="space-y-2">
               <Label htmlFor="priceRange" className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
@@ -130,6 +143,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
               </p>
             </div>
 
+            {/* Location Preferences (Optional) */}
             <div className="space-y-2">
               <Label htmlFor="locationPreferences" className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
@@ -146,6 +160,7 @@ export function SearchForm({ onSubmit }: SearchFormProps) {
               </p>
             </div>
 
+            {/* Trip Description / Type */}
             <div className="space-y-2">
               <Label htmlFor="tripType" className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />

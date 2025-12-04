@@ -1,8 +1,11 @@
 // API Configuration
+// Base URL for the backend API, defaults to localhost:5000
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 // Types matching API response format
+
+// Parameters required for hotel search
 export interface HotelSearchRequest {
   city: string;
   dateRange: {
@@ -12,9 +15,10 @@ export interface HotelSearchRequest {
   priceRange: string;
   locationPreferences?: string;
   tripDescription?: string;
-  excludedHotels?: string[];
+  excludedHotels?: string[]; // List of hotels to ignore (e.g. previously viewed)
 }
 
+// Standard API response structure for hotels
 export interface HotelSearchResponse {
   success: boolean;
   data: {
@@ -28,6 +32,7 @@ export interface HotelSearchResponse {
   } | null;
 }
 
+// Data structure for a single hotel result
 export interface HotelResult {
   name: string;
   images: string[];
@@ -44,12 +49,13 @@ export interface HotelResult {
     snippets: string[];
   };
   aiAnalysis: {
-    relevanceScore: number; // 1-10
-    summary: string;
+    relevanceScore: number; // 1-10 indicating how well it matches preferences
+    summary: string; // AI generated explanation
   };
-  placeId: string;
+  placeId: string; // Unique identifier from Google Places/Backend
 }
 
+// Custom error class for API related issues
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -61,8 +67,9 @@ export class ApiError extends Error {
   }
 }
 
+// Parameters for restaurant search
 export interface RestaurantSearchRequest {
-  address: string;
+  address: string; // Base location to search around
   priceRange?: string;
   eatingPreferences?: string;
   foodRestrictions?: string[];
@@ -103,11 +110,12 @@ export interface RestaurantResult {
   };
 }
 
+// Parameters for activity/attraction search
 export interface ActivitySearchRequest {
   address: string;
   priceRange?: string;
   maxDistance?: string;
-  searchPrompt: string;
+  searchPrompt: string; // Open ended query for what to do
 }
 
 export interface ActivitySearchResponse {
@@ -146,7 +154,9 @@ export interface ActivityResult {
   activityType: string;
 }
 
+// Centralized service for all API calls
 export const apiService = {
+  // Search for hotels based on criteria
   async searchHotels(request: HotelSearchRequest): Promise<HotelSearchResponse> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -185,6 +195,7 @@ export const apiService = {
     }
   },
 
+  // Search for restaurants based on location and preferences
   async searchRestaurants(request: RestaurantSearchRequest): Promise<RestaurantSearchResponse> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -223,6 +234,7 @@ export const apiService = {
     }
   },
 
+  // Search for activities based on location and prompt
   async searchActivities(request: ActivitySearchRequest): Promise<ActivitySearchResponse> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
